@@ -1,1 +1,28 @@
-Partial code
+##  Partial code
+# double-step Otsu threshold
+    id_to_coords = {}
+    while True:
+        success, frame = cap.read() 
+        if not (success):
+            break
+        results = model(frame, stream=True)
+        detections, confarray, confarray1 = extract_detections(results, detect_class)
+        extended_array = np.column_stack((detections, confarray1))
+        filtered_array = extended_array[extended_array[:, 4] >= 0.5]
+        extended_array = extended_array[np.argsort(filtered_array[:, 1])]
+        median_value = np.median(extended_array[:, 1])
+        extended_array1 = extended_array[extended_array[:, 1] >= median_value]
+        extended_array2 = extended_array[extended_array[:, 1] < median_value]
+        threshold1 = otsu_threshold(extended_array1[:, 1])
+        threshold2 = otsu_threshold(extended_array2[:, 1])
+        selected_array1 = extended_array1[extended_array1[:, 1] < threshold1]
+        selected_array2 = extended_array2[extended_array2[:, 1] > threshold2]
+        extended_array_new = np.vstack((selected_array1, selected_array2))
+        extended_array_new = extended_array_new[np.argsort(extended_array_new[:, 0])]
+        detections = extended_array_new[:, :4]
+        confarray = extended_array_new[:, 4].tolist()
+        resultsTracker = tracker.update(detections, confarray, frame)
+        for x1, y1, x2, y2, Id in resultsTracker:
+            if Id not in id_to_coords:
+                id_to_coords[Id] = []
+            id_to_coords[Id].append((x1, y1))
