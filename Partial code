@@ -26,3 +26,31 @@
             if Id not in id_to_coords:
                 id_to_coords[Id] = []
             id_to_coords[Id].append((x1, y1))
+
+
+# filter abnormal IDs
+class CustomDeepSort:
+    def __init__(self):
+        self.deepsort = DeepSORT() 
+        self.mean_xi = 0.0 
+        self.std_xi = 0.0 
+        self.abnormal_ids = set()
+    def update(self, detections, frame):
+        tracks = self.deepsort.update(detections, frame)
+        current_xi = []
+        current_ids = []
+        for track in tracks:
+            track_id = track.track_id
+            current_center_x = track.to_tlwh()[0] + track.to_tlwh()[2] / 2
+            last_center_x = track.last_center_x
+            xi = current_center_x - last_center_x
+            current_xi.append(xi)
+            current_ids.append(track_id)
+        self.mean_xi = np.mean(current_xi)
+        self.std_xi = np.std(current_xi)
+        self.abnormal_ids = set()
+        for idx in range(len(current_xi)):
+            if abs(current_xi[idx] - self.mean_xi) > self.std_xi:
+                self.abnormal_ids.add(current_ids[idx])
+        normal_tracks = [track for track in tracks if track.track_id not in self.abnormal_ids]
+        return normal_tracks
